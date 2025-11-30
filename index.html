@@ -4,75 +4,102 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Генеалогическое древо семьи</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <header class="header">
-            <h1>🌳 История нашей семьи в лицах</h1>
-            <div class="btn-group">
-                <button class="btn btn-primary" onclick="showAddPersonModal()">➕ Добавить</button>
-                <button class="btn btn-secondary" onclick="showGallery()">🖼️ Галерея</button>
-                <button class="btn btn-secondary" onclick="showTimeline()">📅 События</button>
-                <button class="btn btn-secondary" onclick="showStats()">📊 Статистика</button>
-                <button class="btn btn-secondary" onclick="showMap()">🗺️ Карта</button>
-                <button class="btn btn-secondary" onclick="toggleTheme()">🎨 Тема</button>
-                <button class="btn btn-accent" onclick="exportToPDF()">📄 PDF</button>
-                <button class="btn btn-accent" onclick="exportToExcel()">📊 Excel</button>
-                <button class="btn btn-accent" onclick="exportData()">💾 JSON</button>
-                <button class="btn btn-accent" onclick="importData()">📥 Импорт JSON</button>
-                <button class="btn btn-accent" onclick="importExcel()">📥 Импорт Excel</button>
-                <button class="btn btn-accent" onclick="downloadTemplate()">📋 Шаблон Excel</button>
-            </div>
+        <header>
+            <h1>🌳 Генеалогическое древо семьи</h1>
+            <p class="subtitle">История нашей семьи в лицах</p>
         </header>
 
-        <div class="search-bar">
-            <input type="text" id="searchInput" placeholder="🔍 Поиск по имени..." oninput="searchPerson()">
-            <button class="btn-clear" onclick="clearSearch()">✕</button>
+        <div class="controls">
+            <button class="btn btn-primary" onclick="showAddPersonModal()">➕ Добавить</button>
+            <button class="btn" onclick="showGallery()">🖼️ Галерея</button>
+            <button class="btn" onclick="showTimeline()">📅 События</button>
+            <button class="btn" onclick="showStats()">📊 Статистика</button>
+            <button class="btn" onclick="showMap()">🗺️ Карта</button>
+            <button class="btn" onclick="toggleTheme()">🌙 Тема</button>
+            <button class="btn" onclick="exportToPDF()">📄 PDF</button>
+            <button class="btn" onclick="exportData()">💾 Экспорт</button>
+            <button class="btn" onclick="importData()">📥 Импорт</button>
         </div>
 
-        <div id="familyTree"></div>
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="🔍 Поиск по имени..." onkeyup="searchPerson()">
+            <button class="btn-clear" onclick="clearSearch()" style="display:none;">✕</button>
+        </div>
+
+        <div class="tree-container">
+            <div class="tree" id="familyTree"></div>
+        </div>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО ПРОСМОТРА -->
+    <!-- Модальное окно просмотра -->
     <div id="viewModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="viewModalName"></h2>
-                <div class="modal-buttons">
-                    <button class="btn btn-primary" onclick="editCurrentPerson()">✏️ Редактировать</button>
-                    <button class="btn btn-danger" onclick="deletePerson()">🗑️ Удалить</button>
-                    <button class="btn btn-secondary" onclick="closeModal('viewModal')">✕</button>
-                </div>
+                <span class="close" onclick="closeModal('viewModal')">&times;</span>
             </div>
-            <div class="modal-body">
-                <div id="photoCarousel" class="photo-carousel">
-                    <button class="carousel-btn prev" onclick="prevPhoto()">❮</button>
-                    <img id="viewModalPhoto" class="modal-photo">
-                    <button class="carousel-btn next" onclick="nextPhoto()">❯</button>
-                </div>
-                <div id="viewModalInfo"></div>
-                <div id="mediaSection"></div>
+            
+            <div class="photo-carousel" id="photoCarousel">
+                <button class="carousel-btn prev" onclick="prevPhoto()">&lt;</button>
+                <img id="viewModalPhoto" class="modal-photo" src="" alt="">
+                <button class="carousel-btn next" onclick="nextPhoto()">&gt;</button>
+            </div>
+            
+            <div class="modal-info" id="viewModalInfo"></div>
+            
+            <div class="media-section" id="mediaSection"></div>
+            
+            <div class="btn-group">
+                <button class="btn-save" onclick="editCurrentPerson()">✏️ Редактировать</button>
             </div>
         </div>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ -->
+    <!-- Модальное окно редактирования -->
     <div id="editModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-wide">
             <div class="modal-header">
                 <h2 id="editModalTitle">Добавить человека</h2>
-                <button class="btn btn-secondary close-btn" onclick="closeModal('editModal')">✕</button>
+                <span class="close" onclick="closeModal('editModal')">&times;</span>
             </div>
+            
             <form id="personForm">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Имя *</label>
-                        <input type="text" id="personName" required>
+                <div class="form-group">
+                    <label>Фотографии</label>
+                    <div class="photo-upload-multi">
+                        <div class="photos-preview" id="photosPreview">
+                            <div class="add-photo-btn" onclick="document.getElementById('photoInput').click()">
+                                <span>➕</span>
+                                <p>Добавить фото</p>
+                            </div>
+                        </div>
+                        <input type="file" id="photoInput" accept="image/*" multiple style="display:none;">
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Имя и фамилия *</label>
+                    <input type="text" id="personName" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Дата рождения</label>
+                        <input type="date" id="personBirthDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Дата смерти</label>
+                        <input type="date" id="personDeathDate">
+                    </div>
+                </div>
+
+                <div class="form-row">
                     <div class="form-group">
                         <label>Пол</label>
                         <select id="personGender">
@@ -82,104 +109,103 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Дата рождения (ГГГГ-ММ-ДД)</label>
-                        <input type="date" id="personBirthDate">
-                    </div>
-                    <div class="form-group">
-                        <label>Дата смерти (ГГГГ-ММ-ДД)</label>
-                        <input type="date" id="personDeathDate">
-                    </div>
-                    <div class="form-group">
-                        <label>Место рождения</label>
-                        <input type="text" id="personBirthPlace">
-                    </div>
-                    <div class="form-group">
                         <label>Родитель</label>
-                        <select id="personParent"></select>
-                    </div>
-                    <div class="form-group">
-                        <label>Супруг(а)</label>
-                        <select id="personSpouse"></select>
+                        <select id="personParent">
+                            <option value="">Нет родителя</option>
+                        </select>
                     </div>
                 </div>
+
                 <div class="form-group">
-                    <label>Биография</label>
-                    <textarea id="personBio" rows="3"></textarea>
+                    <label>Супруг(а)</label>
+                    <select id="personSpouse">
+                        <option value="">Нет супруга</option>
+                    </select>
                 </div>
+
                 <div class="form-group">
-                    <label>Важные события (по одному в строке, формат: ГГГГ - описание)</label>
-                    <textarea id="personEvents" rows="4" placeholder="1920 - Родился в деревне
-1945 - Вернулся с войны"></textarea>
+                    <label>Место рождения</label>
+                    <input type="text" id="personBirthPlace" placeholder="Город, страна">
                 </div>
+
                 <div class="form-group">
-                    <label>YouTube видео (ссылка)</label>
+                    <label>О человеке</label>
+                    <textarea id="personBio" placeholder="Профессия, достижения, интересные факты..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Важные события (одно на строку)</label>
+                    <textarea id="personEvents" placeholder="1990 - Окончил университет&#10;2000 - Переехал в Москву&#10;2010 - Основал компанию"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Видео URL (YouTube, Vimeo)</label>
                     <input type="url" id="personVideo" placeholder="https://youtube.com/watch?v=...">
                 </div>
+
                 <div class="form-group">
-                    <label>Фотографии</label>
-                    <input type="file" id="photoInput" accept="image/*" multiple>
-                    <div id="photosPreview"></div>
+                    <label>Аудио заметка</label>
+                    <div class="audio-controls">
+                        <button type="button" class="btn-record" id="recordBtn" onclick="toggleRecording()">🎤 Записать</button>
+                        <audio id="audioPreview" controls style="display:none;"></audio>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Аудиозапись</label>
-                    <audio id="audioPreview" controls style="display: none;"></audio>
-                    <br>
-                    <button type="button" id="recordBtn" class="btn btn-accent" onclick="toggleRecording()">🎤 Записать</button>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">💾 Сохранить</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">❌ Отмена</button>
-                    <button type="button" id="deleteBtn" class="btn btn-danger" onclick="deletePerson()" style="display: none;">🗑️ Удалить</button>
+
+                <div class="btn-group">
+                    <button type="button" class="btn-cancel" onclick="closeModal('editModal')">Отмена</button>
+                    <button type="button" class="btn-delete" id="deleteBtn" onclick="deletePerson()" style="display:none;">Удалить</button>
+                    <button type="submit" class="btn-save">Сохранить</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- ОСТАЛЬНЫЕ МОДАЛЬНЫЕ ОКНА -->
+    <!-- Модальное окно галереи -->
     <div id="galleryModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-wide">
             <div class="modal-header">
                 <h2>🖼️ Галерея фотографий</h2>
-                <button class="btn btn-secondary close-btn" onclick="closeModal('galleryModal')">✕</button>
+                <span class="close" onclick="closeModal('galleryModal')">&times;</span>
             </div>
-            <div id="galleryGrid" class="gallery-grid"></div>
+            <div class="gallery-grid" id="galleryGrid"></div>
         </div>
     </div>
 
+    <!-- Модальное окно статистики -->
     <div id="statsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>📊 Статистика</h2>
-                <button class="btn btn-secondary close-btn" onclick="closeModal('statsModal')">✕</button>
+                <h2>📊 Статистика древа</h2>
+                <span class="close" onclick="closeModal('statsModal')">&times;</span>
             </div>
-            <div id="statsContent" class="stats-grid"></div>
+            <div class="stats-content" id="statsContent"></div>
         </div>
     </div>
 
+    <!-- Модальное окно временной шкалы -->
     <div id="timelineModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-wide">
             <div class="modal-header">
-                <h2>📅 Временная шкала</h2>
-                <button class="btn btn-secondary close-btn" onclick="closeModal('timelineModal')">✕</button>
+                <h2>📅 Временная шкала событий</h2>
+                <span class="close" onclick="closeModal('timelineModal')">&times;</span>
             </div>
-            <div id="timelineContent" class="timeline"></div>
+            <div class="timeline-content" id="timelineContent"></div>
         </div>
     </div>
 
+    <!-- Модальное окно карты -->
     <div id="mapModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-wide">
             <div class="modal-header">
                 <h2>🗺️ Карта мест рождения</h2>
-                <button class="btn btn-secondary close-btn" onclick="closeModal('mapModal')">✕</button>
+                <span class="close" onclick="closeModal('mapModal')">&times;</span>
             </div>
-            <div id="mapContent" class="map-content"></div>
+            <div class="map-content" id="mapContent"></div>
         </div>
     </div>
 
-    <!-- СКРЫТЫЕ INPUT ДЛЯ ИМПОРТА -->
-    <input type="file" id="importInput" accept=".json" style="display: none;">
-    <input type="file" id="excelInput" accept=".xlsx,.xls" style="display: none;">
+    <input type="file" id="importInput" accept=".json" style="display:none;">
 
-    <script src="app.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
