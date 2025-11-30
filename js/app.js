@@ -12,11 +12,13 @@ window.addEventListener('load', () => {
     const saved = localStorage.getItem('familyTreeData');
     if (saved) {
         familyData = JSON.parse(saved);
+        syncChildrenBetweenSpouses(); // ← Добавьте эту строку
     } else {
         familyData = [];
     }
     renderTree();
 });
+
 
 // Тема
 function toggleTheme() {
