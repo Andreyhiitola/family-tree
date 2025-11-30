@@ -787,3 +787,14 @@ h1 {
         font-size: 14px;
     }
 }
+/* ✅ ДОБАВЬТЕ В КОНЕЦ style.css */
+.spouses-list {
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 2px;
+    line-height: 1.2;
+}
+.spouses-list br {
+    display: block;
+    margin: 1px 0;
+}
