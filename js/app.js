@@ -59,8 +59,13 @@ function buildTree(parentId = null) {
         const photo = person.photos && person.photos.length > 0 ? person.photos[0] : '';
         
         // ✅ ПОКАЗЫВАЕМ ВСЕХ супругов
-        const spouses = familyData.filter(p => p.spouseId === person.id);
-        const spouseInfo = spouses.length > 0 ? 
+      // ✅ Двунаправленные супруги
+const spouses1 = familyData.filter(p => p.spouseId === person.id);
+const spouses2 = familyData.filter(p => person.spouseId === p.id);
+const allSpouses = [...new Set([...spouses1, ...spouses2])];
+const spouseInfo = allSpouses.length > 0 ? 
+    `<div class="spouses-list">${allSpouses.map(s => `💍 ${s.name}`).join('<br>')}</div>` : '';
+
             `<div class="spouses-list">${spouses.map(s => `💍 ${s.name}`).join('<br>')}</div>` : '';
 
         html += `
