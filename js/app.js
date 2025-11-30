@@ -753,6 +753,130 @@ function importData() {
     document.getElementById('importInput').click();
 }
 
+function importExcel() {
+    document.getElementById('excelInput').click();
+}
+
+// Скачать шаблон Excel
+function downloadTemplate() {
+    const wb = XLSX.utils.book_new();
+    
+    const templateData = [
+        ['ID', 'Имя', 'Пол (male/female)', 'Дата рождения (ГГГГ-ММ-ДД)', 'Дата смерти (ГГГГ-ММ-ДД)', 'Место рождения', 'ID родителя', 'ID супруга', 'Биография', 'События (разделить ;)'],
+        [1, 'Иван Петрович', 'male', '1920-05-15', '1995-12-03', 'Москва, Россия', '', '', 'Ветеран войны', '1941 - Призван в армию;1945 - Вернулся с войны'],
+        [2, 'Мария Ивановна', 'female', '1945-08-22', '', 'Санкт-Петербург, Россия', 1, '', 'Учительница', '1970 - Окончила университет;1975 - Начала преподавать'],
+        [3, 'Петр Иванович', 'male', '1948-03-10', '', 'Москва, Россия', 1, 2, 'Инженер', '1975 - Женился на Марии;1980 - Защитил диссертацию']
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    
+    // Настройка ширины колонок
+    ws['!cols'] = [
+        {wch: 5}, {wch: 20}, {wch: 18}, {wch: 25}, {wch: 25}, 
+        {wch: 25}, {wch: 15}, {wch: 15}, {wch: 40}, {wch: 50}
+    ];
+    
+    XLSX.utils.book_append_sheet(wb, ws, 'Семья');
+    XLSX.writeFile(wb, 'family-tree-template.xlsx');
+}
+
+// Импорт из Excel
+document.getElementById('excelInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        try {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+            
+            if (jsonData.length === 0) {
+                alert('Таблица пустая!');
+                return;
+            }
+            
+            if (!confirm(`Найдено ${jsonData.length} записей. Заменить текущие данные?`)) {
+                return;
+            }
+            
+            // Преобразуем данные из Excel в формат приложения
+            const newFamilyData = jsonData.map((row, index) => {
+                const person = {
+                    id: row['ID'] || (index + 1),
+                    name: row['Имя'] || row['Name'] || 'Без имени',
+                    gender: row['Пол (male/female)'] || row['Gender'] || '',
+                    birthDate: row['Дата рождения (ГГГГ-ММ-ДД)'] || row['Birth Date'] || '',
+                    deathDate: row['Дата смерти (ГГГГ-ММ-ДД)'] || row['Death Date'] || '',
+                    birthPlace: row['Место рождения'] || row['Birth Place'] || '',
+                    bio: row['Биография'] || row['Bio'] || '',
+                    events: row['События (разделить ;)'] || row['Events'] || '',
+                    photos: [],
+                    children: []
+                };
+                
+                // Обработка событий
+                if (person.events) {
+                    person.events = person.events.replace(/;/g, '\n');
+                }
+                
+                // Обработка дат из Excel (если формат date)
+                if (typeof person.birthDate === 'number') {
+                    person.birthDate = excelDateToJSDate(person.birthDate);
+                }
+                if (typeof person.deathDate === 'number') {
+                    person.deathDate = excelDateToJSDate(person.deathDate);
+                }
+                
+                return person;
+            });
+            
+            // Второй проход: устанавливаем связи родитель-ребенок и супругов
+            jsonData.forEach((row, index) => {
+                const parentId = row['ID родителя'] || row['Parent ID'];
+                const spouseId = row['ID супруга'] || row['Spouse ID'];
+                
+                if (parentId) {
+                    const parent = newFamilyData.find(p => p.id == parentId);
+                    if (parent) {
+                        if (!parent.children) parent.children = [];
+                        parent.children.push(newFamilyData[index].id);
+                    }
+                }
+                
+                if (spouseId) {
+                    newFamilyData[index].spouseId = parseInt(spouseId);
+                }
+            });
+            
+            familyData = newFamilyData;
+            saveData();
+            alert('✅ Данные успешно импортированы!');
+            
+        } catch (err) {
+            console.error(err);
+            alert('Ошибка при чтении Excel файла: ' + err.message);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+});
+
+// Конвертация даты Excel в формат YYYY-MM-DD
+function excelDateToJSDate(serial) {
+    const utc_days = Math.floor(serial - 25569);
+    const utc_value = utc_days * 86400;
+    const date_info = new Date(utc_value * 1000);
+    
+    const year = date_info.getFullYear();
+    const month = String(date_info.getMonth() + 1).padStart(2, '0');
+    const day = String(date_info.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
+
 document.getElementById('importInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
