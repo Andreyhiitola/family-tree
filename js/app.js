@@ -903,24 +903,7 @@ function excelDateToJSDate(serial) {
     return `${year}-${month}-${day}`;
 }
 
-document.getElementById('importInput').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            try {
-                const imported = JSON.parse(event.target.result);
-                if (confirm('Импорт заменит текущие данные. Продолжить?')) {
-                    familyData = imported;
-                    saveData();
-                }
-            } catch (err) {
-                alert('Ошибка при чтении файла');
-            }
-        };
-        reader.readAsText(file);
-    }
-});
+
 
 // Закрытие модального окна
 window.onclick = function(e) {
