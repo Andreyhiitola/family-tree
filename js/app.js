@@ -6,19 +6,13 @@ let mediaRecorder = null;
 let audioChunks = [];
 let audioDataUrl = null;
 
-// Загрузка данных из localStorage при старте
 window.addEventListener('load', () => {
     loadTheme();
     const saved = localStorage.getItem('familyTreeData');
-    if (saved) {
-        familyData = JSON.parse(saved);
-    } else {
-        familyData = [];
-    }
+    if (saved) familyData = JSON.parse(saved);
     renderTree();
 });
 
-// Тема
 function toggleTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme');
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -31,51 +25,39 @@ function loadTheme() {
     document.documentElement.setAttribute('data-theme', savedTheme);
 }
 
-// Сохранение данных
 function saveData() {
     localStorage.setItem('familyTreeData', JSON.stringify(familyData));
     renderTree();
 }
 
-// ✅ ИСПРАВЛЕННАЯ функция построения дерева - показывает ВСЕХ супругов
 function buildTree(parentId = null) {
     const children = familyData.filter(person => {
-        if (parentId === null) {
-            return !familyData.some(p => p.children && p.children.includes(person.id));
-        }
-        const parent = familyData.find(p => p.id === parentId);
-        return parent && parent.children && parent.children.includes(person.id);
+        if (parentId === null) return !familyData.some(p => p.children?.includes(person.id));
+        return familyData.find(p => p.id === parentId)?.children?.includes(person.id);
     });
 
-    if (children.length === 0) return '';
+    if (!children.length) return '';
 
     let html = '<ul>';
     children.forEach(person => {
         const dates = person.deathDate 
             ? `${person.birthDate?.split('-')[0] || '?'} - ${person.deathDate.split('-')[0]}`
             : person.birthDate ? `р. ${person.birthDate.split('-')[0]}` : '';
-
-        const genderClass = person.gender ? person.gender : '';
-        const photo = person.photos && person.photos.length > 0 ? person.photos[0] : '';
         
-        // ✅ ПОКАЗЫВАЕМ ВСЕХ супругов
-      // ✅ Двунаправленные супруги
-const spouses1 = familyData.filter(p => p.spouseId === person.id);
-const spouses2 = familyData.filter(p => person.spouseId === p.id);
-const allSpouses = [...new Set([...spouses1, ...spouses2])];
-const spouseInfo = allSpouses.length > 0 ? 
-    `<div class="spouses-list">${allSpouses.map(s => `💍 ${s.name}`).join('<br>')}</div>` : '';
-
-            `<div class="spouses-list">${spouses.map(s => `💍 ${s.name}`).join('<br>')}</div>` : '';
+        const photo = person.photos?.[0] || '';
+        
+        // ✅ ДВУНАПРАВЛЕННЫЕ СУПРУГИ
+        const spouses1 = familyData.filter(p => p.spouseId === person.id);
+        const spouses2 = familyData.filter(p => person.spouseId === p.id);
+        const allSpouses = [...new Set([...spouses1, ...spouses2])];
+        const spouseInfo = allSpouses.length ? 
+            `<div class="spouses-list">${allSpouses.map(s => `💍 ${s.name}`).join('<br>')}</div>` : '';
 
         html += `
             <li>
-                <div class="person-card ${genderClass}" data-id="${person.id}" onclick="showViewModal(${person.id})">
+                <div class="person-card ${person.gender || ''}" data-id="${person.id}" onclick="showViewModal(${person.id})">
                     <button class="edit-btn" onclick="event.stopPropagation(); showEditModal(${person.id})">✏️</button>
-                    ${photo ? 
-                        `<img src="${photo}" alt="${person.name}" class="person-photo">` :
-                        `<div class="person-photo">👤</div>`
-                    }
+                    ${photo ? `<img src="${photo}" alt="${person.name}" class="person-photo">` : `<div class="person-photo">👤</div>`}
                     <div class="person-name">${person.name}</div>
                     <div class="person-dates">${dates}</div>
                     ${spouseInfo}
@@ -84,54 +66,38 @@ const spouseInfo = allSpouses.length > 0 ?
             </li>
         `;
     });
-    html += '</ul>';
-    return html;
+    return html + '</ul>';
 }
 
 function renderTree() {
     const tree = document.getElementById('familyTree');
-    if (familyData.length === 0) {
-        tree.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">🌱</div>
-                <h3>Древо пока пусто</h3>
-                <p>Нажмите "Добавить" чтобы начать</p>
-            </div>
-        `;
-    } else {
-        tree.innerHTML = buildTree();
-    }
+    tree.innerHTML = familyData.length ? buildTree() : `
+        <div class="empty-state">
+            <div class="empty-state-icon">🌱</div>
+            <h3>Древо пока пусто</h3>
+            <p>Нажмите "Добавить" чтобы начать</p>
+        </div>
+    `;
 }
 
-// Поиск
 function searchPerson() {
     const query = document.getElementById('searchInput').value.toLowerCase();
     const cards = document.querySelectorAll('.person-card');
     const clearBtn = document.querySelector('.btn-clear');
     
-    clearBtn.style.display = query.length > 0 ? 'flex' : 'none';
-    
+    clearBtn.style.display = query ? 'flex' : 'none';
     cards.forEach(card => {
-        card.classList.remove('highlighted');
-        if (query.length > 0) {
-            const name = card.querySelector('.person-name').textContent.toLowerCase();
-            if (name.includes(query)) {
-                card.classList.add('highlighted');
-                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
+        card.classList.toggle('highlighted', card.querySelector('.person-name')?.textContent.toLowerCase().includes(query));
+        if (card.classList.contains('highlighted')) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 }
 
 function clearSearch() {
     document.getElementById('searchInput').value = '';
     document.querySelector('.btn-clear').style.display = 'none';
-    document.querySelectorAll('.person-card').forEach(card => {
-        card.classList.remove('highlighted');
-    });
+    document.querySelectorAll('.person-card').forEach(card => card.classList.remove('highlighted'));
 }
 
-// ✅ ИСПРАВЛЕННАЯ функция просмотра - показывает ВСЕХ супругов
 function showViewModal(personId) {
     const person = familyData.find(p => p.id === personId);
     if (!person) return;
@@ -141,68 +107,50 @@ function showViewModal(personId) {
     
     document.getElementById('viewModalName').textContent = person.name;
     
-    const carousel = document.getElementById('photoCarousel');
     const photo = document.getElementById('viewModalPhoto');
+    const carousel = document.getElementById('photoCarousel');
     
-    if (person.photos && person.photos.length > 0) {
+    if (person.photos?.length) {
         photo.src = person.photos[0];
         photo.style.display = 'block';
         carousel.querySelector('.prev').style.display = person.photos.length > 1 ? 'block' : 'none';
         carousel.querySelector('.next').style.display = person.photos.length > 1 ? 'block' : 'none';
     } else {
         photo.style.display = 'none';
-        carousel.querySelector('.prev').style.display = 'none';
-        carousel.querySelector('.next').style.display = 'none';
+        carousel.querySelector('.prev, .next').forEach(btn => btn.style.display = 'none');
     }
     
     let infoHtml = '';
-    if (person.gender) {
-        infoHtml += `<p><strong>Пол:</strong> ${person.gender === 'male' ? 'Мужской' : 'Женский'}</p>`;
-    }
-    if (person.birthDate) {
-        infoHtml += `<p><strong>Дата рождения:</strong> ${formatDate(person.birthDate)}</p>`;
-    }
-    if (person.birthPlace) {
-        infoHtml += `<p><strong>Место рождения:</strong> ${person.birthPlace}</p>`;
-    }
-    if (person.deathDate) {
-        infoHtml += `<p><strong>Дата смерти:</strong> ${formatDate(person.deathDate)}</p>`;
-    }
+    if (person.gender) infoHtml += `<p><strong>Пол:</strong> ${person.gender === 'male' ? 'Мужской' : 'Женский'}</p>`;
+    if (person.birthDate) infoHtml += `<p><strong>Дата рождения:</strong> ${formatDate(person.birthDate)}</p>`;
+    if (person.birthPlace) infoHtml += `<p><strong>Место рождения:</strong> ${person.birthPlace}</p>`;
+    if (person.deathDate) infoHtml += `<p><strong>Дата смерти:</strong> ${formatDate(person.deathDate)}</p>`;
     
-    // ✅ ВСЕ супруги в модальном окне
-    const spouses = familyData.filter(p => p.spouseId === person.id);
-    if (spouses.length > 0) {
+    // ✅ ДВУНАПРАВЛЕННЫЕ СУПРУГИ
+    const spouses1 = familyData.filter(p => p.spouseId === person.id);
+    const spouses2 = familyData.filter(p => person.spouseId === p.id);
+    const allSpouses = [...new Set([...spouses1, ...spouses2])];
+    if (allSpouses.length) {
         infoHtml += `<p><strong>Супруг(и/а):</strong></p><ul style="margin-left: 20px;">`;
-        spouses.forEach(spouse => {
-            infoHtml += `<li>${spouse.name}</li>`;
-        });
+        allSpouses.forEach(spouse => infoHtml += `<li>${spouse.name}</li>`);
         infoHtml += `</ul>`;
     }
     
-    if (person.bio) {
-        infoHtml += `<p><strong>О персоне:</strong> ${person.bio}</p>`;
-    }
+    if (person.bio) infoHtml += `<p><strong>О персоне:</strong> ${person.bio}</p>`;
     if (person.events) {
         infoHtml += `<p><strong>Важные события:</strong></p><ul style="margin-left: 20px;">`;
-        person.events.split('\n').forEach(event => {
-            if (event.trim()) infoHtml += `<li>${event}</li>`;
-        });
+        person.events.split('\n').forEach(event => event.trim() && (infoHtml += `<li>${event}</li>`));
         infoHtml += `</ul>`;
     }
 
     document.getElementById('viewModalInfo').innerHTML = infoHtml;
     
-    // Медиа секция
     let mediaHtml = '';
     if (person.videoUrl) {
-        const videoId = extractVideoId(person.videoUrl);
-        if (videoId) {
-            mediaHtml += `<div class="video-container"><iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>`;
-        }
+        const videoId = person.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)?.[1];
+        if (videoId) mediaHtml += `<div class="video-container"><iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>`;
     }
-    if (person.audioUrl) {
-        mediaHtml += `<div class="audio-container"><audio controls src="${person.audioUrl}"></audio></div>`;
-    }
+    if (person.audioUrl) mediaHtml += `<div class="audio-container"><audio controls src="${person.audioUrl}"></audio></div>`;
     document.getElementById('mediaSection').innerHTML = mediaHtml;
     
     document.getElementById('viewModal').style.display = 'flex';
@@ -210,23 +158,16 @@ function showViewModal(personId) {
 
 function prevPhoto() {
     const person = familyData.find(p => p.id === currentEditId);
-    if (!person || !person.photos || person.photos.length <= 1) return;
-    
+    if (!person?.photos?.length || person.photos.length <= 1) return;
     currentPhotoIndex = (currentPhotoIndex - 1 + person.photos.length) % person.photos.length;
     document.getElementById('viewModalPhoto').src = person.photos[currentPhotoIndex];
 }
 
 function nextPhoto() {
     const person = familyData.find(p => p.id === currentEditId);
-    if (!person || !person.photos || person.photos.length <= 1) return;
-    
+    if (!person?.photos?.length || person.photos.length <= 1) return;
     currentPhotoIndex = (currentPhotoIndex + 1) % person.photos.length;
     document.getElementById('viewModalPhoto').src = person.photos[currentPhotoIndex];
-}
-
-function extractVideoId(url) {
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-    return match ? match[1] : null;
 }
 
 function showAddPersonModal() {
@@ -252,7 +193,7 @@ function showEditModal(personId) {
     audioDataUrl = person.audioUrl || null;
     
     document.getElementById('editModalTitle').textContent = 'Редактировать';
-    document.getElementById('personName').value = person.name;
+    document.getElementById('personName').value = person.name || '';
     document.getElementById('personBirthDate').value = person.birthDate || '';
     document.getElementById('personDeathDate').value = person.deathDate || '';
     document.getElementById('personBio').value = person.bio || '';
@@ -262,14 +203,9 @@ function showEditModal(personId) {
     document.getElementById('personVideo').value = person.videoUrl || '';
     
     renderPhotosPreview();
-    
     const audioPreview = document.getElementById('audioPreview');
-    if (audioDataUrl) {
-        audioPreview.src = audioDataUrl;
-        audioPreview.style.display = 'block';
-    } else {
-        audioPreview.style.display = 'none';
-    }
+    audioPreview.src = audioDataUrl || '';
+    audioPreview.style.display = audioDataUrl ? 'block' : 'none';
     
     updateParentSelect(personId);
     updateSpouseSelect(personId);
@@ -278,28 +214,17 @@ function showEditModal(personId) {
     document.getElementById('editModal').style.display = 'flex';
 }
 
-function editCurrentPerson() {
-    closeModal('viewModal');
-    showEditModal(currentEditId);
-}
-
 function updateParentSelect(excludeId = null) {
     const select = document.getElementById('personParent');
-    select.innerHTML = '<option value="">Нет родителя (корень древа)</option>';
+    select.innerHTML = '<option value="">Нет родителя</option>';
     
     familyData.forEach(person => {
         if (person.id !== excludeId) {
-            const option = document.createElement('option');
-            option.value = person.id;
-            option.textContent = person.name;
-            
+            const option = new Option(person.name, person.id);
             if (excludeId) {
-                const parent = familyData.find(p => p.children && p.children.includes(excludeId));
-                if (parent && parent.id === person.id) {
-                    option.selected = true;
-                }
+                const parent = familyData.find(p => p.children?.includes(excludeId));
+                if (parent?.id === person.id) option.selected = true;
             }
-            
             select.appendChild(option);
         }
     });
@@ -310,11 +235,8 @@ function updateSpouseSelect(excludeId = null) {
     select.innerHTML = '<option value="">Нет супруга</option>';
     
     familyData.forEach(person => {
-        if (person.id !== excludeId) {
-            const option = document.createElement('option');
-            option.value = person.id;
-            option.textContent = person.name;
-            select.appendChild(option);
+        if (person.id !== excludeId) {  // ✅ ИСКЛЮЧАЕМ СЕБЯ
+            select.appendChild(new Option(person.name, person.id));
         }
     });
 }
@@ -323,33 +245,28 @@ function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
 
-// Обработка загрузки фото
-document.getElementById('photoInput').addEventListener('change', function(e) {
-    const files = Array.from(e.target.files);
-    
-    files.forEach(file => {
+document.getElementById('photoInput').addEventListener('change', e => {
+    Array.from(e.target.files).forEach(file => {
         const reader = new FileReader();
-        reader.onload = function(event) {
+        reader.onload = event => {
             photoDataUrls.push(event.target.result);
             renderPhotosPreview();
         };
         reader.readAsDataURL(file);
     });
-    
     e.target.value = '';
 });
 
 function renderPhotosPreview() {
     const container = document.getElementById('photosPreview');
-    container.innerHTML = photoDataUrls.map((url, index) => `
+    container.innerHTML = photoDataUrls.map((url, i) => `
         <div class="photo-item">
-            <img src="${url}" alt="Photo ${index + 1}">
-            <button class="remove-photo" onclick="removePhoto(${index})">✕</button>
+            <img src="${url}" alt="Photo ${i + 1}">
+            <button class="remove-photo" onclick="removePhoto(${i})">✕</button>
         </div>
     `).join('') + `
         <div class="add-photo-btn" onclick="document.getElementById('photoInput').click()">
-            <span>➕</span>
-            <p>Добавить</p>
+            <span>➕</span><p>Добавить</p>
         </div>
     `;
 }
@@ -359,11 +276,9 @@ function removePhoto(index) {
     renderPhotosPreview();
 }
 
-// Аудио запись
 async function toggleRecording() {
     const btn = document.getElementById('recordBtn');
-    
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
+    if (mediaRecorder?.state === 'recording') {
         mediaRecorder.stop();
         btn.textContent = '🎤 Записать';
         btn.classList.remove('recording');
@@ -373,21 +288,16 @@ async function toggleRecording() {
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
             
-            mediaRecorder.ondataavailable = (e) => {
-                audioChunks.push(e.data);
-            };
-            
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
             mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const blob = new Blob(audioChunks, { type: 'audio/webm' });
                 const reader = new FileReader();
-                reader.onload = (e) => {
+                reader.onload = e => {
                     audioDataUrl = e.target.result;
-                    const audioPreview = document.getElementById('audioPreview');
-                    audioPreview.src = audioDataUrl;
-                    audioPreview.style.display = 'block';
+                    document.getElementById('audioPreview').src = audioDataUrl;
+                    document.getElementById('audioPreview').style.display = 'block';
                 };
-                reader.readAsDataURL(audioBlob);
-                
+                reader.readAsDataURL(blob);
                 stream.getTracks().forEach(track => track.stop());
             };
             
@@ -395,25 +305,26 @@ async function toggleRecording() {
             btn.textContent = '⏹️ Остановить';
             btn.classList.add('recording');
         } catch (err) {
-            alert('Не удалось получить доступ к микрофону');
+            alert('Ошибка микрофона');
         }
     }
 }
 
-// Сохранение формы
-document.getElementById('personForm').addEventListener('submit', function(e) {
+document.getElementById('personForm').addEventListener('submit', e => {
     e.preventDefault();
     
-    const name = document.getElementById('personName').value;
-    const birthDate = document.getElementById('personBirthDate').value;
-    const deathDate = document.getElementById('personDeathDate').value;
-    const bio = document.getElementById('personBio').value;
-    const gender = document.getElementById('personGender').value;
-    const birthPlace = document.getElementById('personBirthPlace').value;
-    const events = document.getElementById('personEvents').value;
-    const videoUrl = document.getElementById('personVideo').value;
-    const parentId = document.getElementById('personParent').value;
-    const spouseId = document.getElementById('personSpouse').value;
+    const formData = {
+        name: document.getElementById('personName').value,
+        birthDate: document.getElementById('personBirthDate').value,
+        deathDate: document.getElementById('personDeathDate').value,
+        bio: document.getElementById('personBio').value,
+        gender: document.getElementById('personGender').value,
+        birthPlace: document.getElementById('personBirthPlace').value,
+        events: document.getElementById('personEvents').value,
+        videoUrl: document.getElementById('personVideo').value,
+        parentId: document.getElementById('personParent').value,
+        spouseId: document.getElementById('personSpouse').value
+    };
 
     if (currentEditId) {
         const person = familyData.find(p => p.id === currentEditId);
@@ -423,67 +334,34 @@ document.getElementById('personForm').addEventListener('submit', function(e) {
                 if (oldSpouse) oldSpouse.spouseId = null;
             }
             
-            person.name = name;
-            person.birthDate = birthDate;
-            person.deathDate = deathDate;
-            person.bio = bio;
-            person.gender = gender;
-            person.birthPlace = birthPlace;
-            person.events = events;
-            person.videoUrl = videoUrl;
-            person.spouseId = spouseId ? parseInt(spouseId) : null;
-            person.photos = photoDataUrls;
-            person.audioUrl = audioDataUrl;
+            Object.assign(person, formData, { photos: photoDataUrls, audioUrl: audioDataUrl });
             
-            if (spouseId) {
-                const spouse = familyData.find(p => p.id == spouseId);
+            if (formData.spouseId) {
+                const spouse = familyData.find(p => p.id == formData.spouseId);
                 if (spouse) spouse.spouseId = currentEditId;
             }
             
-            familyData.forEach(p => {
-                if (p.children) {
-                    p.children = p.children.filter(id => id !== currentEditId);
-                }
-            });
-            if (parentId) {
-                const parent = familyData.find(p => p.id == parentId);
-                if (parent) {
-                    if (!parent.children) parent.children = [];
-                    parent.children.push(currentEditId);
-                }
+            familyData.forEach(p => p.children = p.children?.filter(id => id !== currentEditId) || []);
+            if (formData.parentId) {
+                const parent = familyData.find(p => p.id == formData.parentId);
+                if (parent) parent.children = parent.children || [];
+                if (!parent.children.includes(currentEditId)) parent.children.push(currentEditId);
             }
         }
     } else {
         const newId = Math.max(0, ...familyData.map(p => p.id)) + 1;
-        const newPerson = {
-            id: newId,
-            name,
-            photos: photoDataUrls,
-            birthDate,
-            deathDate,
-            bio,
-            gender,
-            birthPlace,
-            events,
-            videoUrl,
-            audioUrl: audioDataUrl,
-            spouseId: spouseId ? parseInt(spouseId) : null,
-            children: []
-        };
+        const newPerson = { id: newId, children: [], ...formData, photos: photoDataUrls, audioUrl: audioDataUrl };
         
         familyData.push(newPerson);
         
-        if (spouseId) {
-            const spouse = familyData.find(p => p.id == spouseId);
+        if (formData.spouseId) {
+            const spouse = familyData.find(p => p.id == formData.spouseId);
             if (spouse) spouse.spouseId = newId;
         }
-        
-        if (parentId) {
-            const parent = familyData.find(p => p.id == parentId);
-            if (parent) {
-                if (!parent.children) parent.children = [];
-                parent.children.push(newId);
-            }
+        if (formData.parentId) {
+            const parent = familyData.find(p => p.id == formData.parentId);
+            if (parent) parent.children = parent.children || [];
+            if (!parent.children.includes(newId)) parent.children.push(newId);
         }
     }
 
@@ -492,427 +370,77 @@ document.getElementById('personForm').addEventListener('submit', function(e) {
 });
 
 function deletePerson() {
-    if (!currentEditId) return;
+    if (!currentEditId || !confirm('Удалить человека?')) return;
     
-    if (confirm('Вы уверены, что хотите удалить этого человека?')) {
-        const person = familyData.find(p => p.id === currentEditId);
-        
-        if (person && person.spouseId) {
-            const spouse = familyData.find(p => p.id === person.spouseId);
-            if (spouse) spouse.spouseId = null;
-        }
-        
-        familyData.forEach(p => {
-            if (p.children) {
-                p.children = p.children.filter(id => id !== currentEditId);
-            }
-        });
-        
-        familyData = familyData.filter(p => p.id !== currentEditId);
-        
-        saveData();
-        closeModal('editModal');
+    const person = familyData.find(p => p.id === currentEditId);
+    if (person?.spouseId) {
+        const spouse = familyData.find(p => p.id === person.spouseId);
+        if (spouse) spouse.spouseId = null;
     }
+    
+    familyData.forEach(p => p.children = p.children?.filter(id => id !== currentEditId) || []);
+    familyData = familyData.filter(p => p.id !== currentEditId);
+    
+    saveData();
+    closeModal('editModal');
 }
 
 function formatDate(dateStr) {
     if (!dateStr) return '';
     const [year, month, day] = dateStr.split('-');
-    const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 
-                  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-    return `${parseInt(day)} ${months[parseInt(month) - 1]} ${year} г.`;
+    const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+    return `${day} ${months[+month-1]} ${year} г.`;
 }
 
-// Галерея
 function showGallery() {
     const gallery = document.getElementById('galleryGrid');
-    let allPhotos = [];
+    const allPhotos = familyData.flatMap(p => p.photos?.map(photo => ({photo, person: p})) || []);
     
-    familyData.forEach(person => {
-        if (person.photos && person.photos.length > 0) {
-            person.photos.forEach(photo => {
-                allPhotos.push({ photo, person });
-            });
-        }
-    });
-    
-    if (allPhotos.length === 0) {
-        gallery.innerHTML = '<div class="empty-state"><p>Нет фотографий</p></div>';
-    } else {
-        gallery.innerHTML = allPhotos.map(item => `
+    gallery.innerHTML = allPhotos.length ? 
+        allPhotos.map(item => `
             <div class="gallery-item" onclick="showViewModal(${item.person.id})">
                 <img src="${item.photo}" alt="${item.person.name}">
                 <div class="gallery-item-name">${item.person.name}</div>
             </div>
-        `).join('');
-    }
+        `).join('') : '<div class="empty-state"><p>Нет фотографий</p></div>';
     
     document.getElementById('galleryModal').style.display = 'flex';
 }
 
-// Статистика
 function showStats() {
-    const stats = calculateStats();
-    const content = document.getElementById('statsContent');
+    const stats = {
+        totalPeople: familyData.length,
+        males: familyData.filter(p => p.gender === 'male').length,
+        females: familyData.filter(p => p.gender === 'female').length,
+        totalPhotos: familyData.reduce((sum, p) => sum + (p.photos?.length || 0), 0),
+        marriages: new Set(familyData.map(p => p.spouseId).filter(Boolean)).size,
+        generations: calculateGenerations()
+    };
     
-    content.innerHTML = `
-        <div class="stat-item">
-            <span class="stat-label">Всего человек</span>
-            <span class="stat-value">${stats.totalPeople}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Поколений</span>
-            <span class="stat-value">${stats.generations}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Мужчин</span>
-            <span class="stat-value">${stats.males}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Женщин</span>
-            <span class="stat-value">${stats.females}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Фотографий</span>
-            <span class="stat-value">${stats.totalPhotos}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Супружеских пар</span>
-            <span class="stat-value">${stats.marriages}</span>
-        </div>
-        ${stats.oldestPerson ? `
-        <div class="stat-item">
-            <span class="stat-label">Самый старший</span>
-            <span class="stat-value">${stats.oldestPerson.name} (${stats.oldestAge} лет)</span>
-        </div>
-        ` : ''}
+    document.getElementById('statsContent').innerHTML = `
+        <div class="stat-item"><span>Всего человек</span><span>${stats.totalPeople}</span></div>
+        <div class="stat-item"><span>Поколений</span><span>${stats.generations}</span></div>
+        <div class="stat-item"><span>Мужчин</span><span>${stats.males}</span></div>
+        <div class="stat-item"><span>Женщин</span><span>${stats.females}</span></div>
+        <div class="stat-item"><span>Фотографий</span><span>${stats.totalPhotos}</span></div>
+        <div class="stat-item"><span>Супружеских пар</span><span>${stats.marriages}</span></div>
     `;
-    
     document.getElementById('statsModal').style.display = 'flex';
 }
 
-function calculateStats() {
-    const stats = {
-        totalPeople: familyData.length,
-        generations: calculateGenerations(),
-        males: familyData.filter(p => p.gender === 'male').length,
-        females: familyData.filter(p => p.gender === 'female').length,
-        totalPhotos: familyData.reduce((sum, p) => sum + (p.photos ? p.photos.length : 0), 0),
-        marriages: familyData.filter(p => p.spouseId).length / 2,
-        oldestPerson: null,
-        oldestAge: 0
-    };
-    
-    familyData.forEach(person => {
-        if (person.birthDate) {
-            const endDate = person.deathDate ? new Date(person.deathDate) : new Date();
-            const age = Math.floor((endDate - new Date(person.birthDate)) / (365.25 * 24 * 60 * 60 * 1000));
-            if (age > stats.oldestAge) {
-                stats.oldestAge = age;
-                stats.oldestPerson = person;
-            }
-        }
-    });
-    
-    return stats;
-}
-
 function calculateGenerations() {
-    function getDepth(personId, depth = 1) {
+    const getDepth = (personId, depth = 1) => {
         const person = familyData.find(p => p.id === personId);
-        if (!person || !person.children || person.children.length === 0) {
-            return depth;
-        }
-        return Math.max(...person.children.map(childId => getDepth(childId, depth + 1)));
-    }
-    
-    const roots = familyData.filter(person => 
-        !familyData.some(p => p.children && p.children.includes(person.id))
-    );
-    
-    if (roots.length === 0) return 1;
-    return Math.max(...roots.map(root => getDepth(root.id)));
-}
-
-// Временная шкала
-function showTimeline() {
-    const timeline = {};
-    
-    familyData.forEach(person => {
-        if (person.birthDate) {
-            const year = person.birthDate.split('-')[0];
-            if (!timeline[year]) timeline[year] = [];
-            timeline[year].push({ person: person.name, event: 'Родился(ась)' });
-        }
-        if (person.deathDate) {
-            const year = person.deathDate.split('-')[0];
-            if (!timeline[year]) timeline[year] = [];
-            timeline[year].push({ person: person.name, event: 'Умер(ла)' });
-        }
-        if (person.events) {
-            person.events.split('\n').forEach(event => {
-                const match = event.match(/^(\d{4})\s*-\s*(.+)/);
-                if (match) {
-                    const [, year, description] = match;
-                    if (!timeline[year]) timeline[year] = [];
-                    timeline[year].push({ person: person.name, event: description });
-                }
-            });
-        }
-    });
-    
-    const sortedYears = Object.keys(timeline).sort((a, b) => b - a);
-    
-    const content = document.getElementById('timelineContent');
-    if (sortedYears.length === 0) {
-        content.innerHTML = '<div class="empty-state"><p>Нет событий для отображения</p></div>';
-    } else {
-        content.innerHTML = sortedYears.map(year => `
-            <div class="timeline-item">
-                <div class="timeline-year">${year}</div>
-                <div class="timeline-events">
-                    ${timeline[year].map(item => `
-                        <div class="timeline-event">
-                            <div class="timeline-person">${item.person}</div>
-                            <div class="timeline-description">${item.event}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `).join('');
-    }
-    
-    document.getElementById('timelineModal').style.display = 'flex';
-}
-
-// Карта
-function showMap() {
-    const places = {};
-    
-    familyData.forEach(person => {
-        if (person.birthPlace) {
-            if (!places[person.birthPlace]) {
-                places[person.birthPlace] = [];
-            }
-            places[person.birthPlace].push(person.name);
-        }
-    });
-    
-    const content = document.getElementById('mapContent');
-    if (Object.keys(places).length === 0) {
-        content.innerHTML = '<div class="empty-state"><p>Нет данных о местах рождения</p></div>';
-    } else {
-        content.innerHTML = '<div class="map-list">' + Object.entries(places).map(([place, people]) => `
-            <div class="map-item">
-                <div>
-                    <div class="map-place">📍 ${place}</div>
-                    <div class="map-people">${people.join(', ')}</div>
-                </div>
-                <div class="stat-value">${people.length}</div>
-            </div>
-        `).join('') + '</div>';
-    }
-    
-    document.getElementById('mapModal').style.display = 'flex';
-}
-
-// Экспорт в PDF
-async function exportToPDF() {
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    
-    const treeElement = document.getElementById('familyTree');
-    
-    try {
-        const canvas = await html2canvas(treeElement, {
-            scale: 2,
-            backgroundColor: '#ffffff'
-        });
-        
-        const imgData = canvas.toDataURL('image/png');
-        const imgWidth = 190;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        pdf.text('Генеалогическое древо семьи', 105, 15, { align: 'center' });
-        pdf.addImage(imgData, 'PNG', 10, 25, imgWidth, imgHeight);
-        
-        pdf.save('family-tree.pdf');
-    } catch (err) {
-        alert('Ошибка при создании PDF');
-    }
-}
-
-// Экспорт в Excel
-function exportToExcel() {
-    const wb = XLSX.utils.book_new();
-    
-    const excelData = familyData.map(person => {
-        const parent = familyData.find(p => p.children && p.children.includes(person.id));
-        const events = person.events ? person.events.replace(/\n/g, ';') : '';
-        
-        return {
-            'ID': person.id,
-            'Имя': person.name,
-            'Пол (male/female)': person.gender || '',
-            'Дата рождения (ГГГГ-ММ-ДД)': person.birthDate || '',
-            'Дата смерти (ГГГГ-ММ-ДД)': person.deathDate || '',
-            'Место рождения': person.birthPlace || '',
-            'ID родителя': parent ? parent.id : '',
-            'ID супруга': person.spouseId || '',
-            'Биография': person.bio || '',
-            'События (разделить ;)': events
-        };
-    });
-    
-    const ws = XLSX.utils.json_to_sheet(excelData);
-    
-    ws['!cols'] = [
-        {wch: 5}, {wch: 20}, {wch: 18}, {wch: 25}, {wch: 25}, 
-        {wch: 25}, {wch: 15}, {wch: 15}, {wch: 40}, {wch: 50}
-    ];
-    
-    XLSX.utils.book_append_sheet(wb, ws, 'Семья');
-    XLSX.writeFile(wb, 'family-tree.xlsx');
-}
-
-// Экспорт/Импорт данных
-function exportData() {
-    const dataStr = JSON.stringify(familyData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'family-tree-data.json';
-    link.click();
-    URL.revokeObjectURL(url);
-}
-
-function importData() {
-    document.getElementById('importInput').click();
-}
-
-function importExcel() {
-    document.getElementById('excelInput').click();
-}
-
-function downloadTemplate() {
-    const wb = XLSX.utils.book_new();
-    
-    const templateData = [
-        ['ID', 'Имя', 'Пол (male/female)', 'Дата рождения (ГГГГ-ММ-ДД)', 'Дата смерти (ГГГГ-ММ-ДД)', 'Место рождения', 'ID родителя', 'ID супруга', 'Биография', 'События (разделить ;)'],
-        [1, 'Иван Петрович', 'male', '1920-05-15', '1995-12-03', 'Москва, Россия', '', '', 'Ветеран войны', '1941 - Призван в армию;1945 - Вернулся с войны'],
-        [2, 'Мария Ивановна', 'female', '1945-08-22', '', 'Санкт-Петербург, Россия', 1, '', 'Учительница', '1970 - Окончила университет;1975 - Начала преподавать'],
-        [3, 'Петр Иванович', 'male', '1948-03-10', '', 'Москва, Россия', 1, 2, 'Инженер', '1975 - Женился на Марии;1980 - Защитил диссертацию']
-    ];
-    
-    const ws = XLSX.utils.aoa_to_sheet(templateData);
-    
-    ws['!cols'] = [
-        {wch: 5}, {wch: 20}, {wch: 18}, {wch: 25}, {wch: 25}, 
-        {wch: 25}, {wch: 15}, {wch: 15}, {wch: 40}, {wch: 50}
-    ];
-    
-    XLSX.utils.book_append_sheet(wb, ws, 'Семья');
-    XLSX.writeFile(wb, 'family-tree-template.xlsx');
-}
-
-// Импорт из Excel
-document.getElementById('excelInput').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        try {
-            const data = new Uint8Array(event.target.result);
-            const workbook = XLSX.read(data, {type: 'array'});
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-            
-            if (jsonData.length === 0) {
-                alert('Таблица пустая!');
-                return;
-            }
-            
-            if (!confirm(`Найдено ${jsonData.length} записей. Заменить текущие данные?`)) {
-                return;
-            }
-            
-            const newFamilyData = jsonData.map((row, index) => {
-                const person = {
-                    id: row['ID'] || (index + 1),
-                    name: row['Имя'] || row['Name'] || 'Без имени',
-                    gender: row['Пол (male/female)'] || row['Gender'] || '',
-                    birthDate: row['Дата рождения (ГГГГ-ММ-ДД)'] || row['Birth Date'] || '',
-                    deathDate: row['Дата смерти (ГГГГ-ММ-ДД)'] || row['Death Date'] || '',
-                    birthPlace: row['Место рождения'] || row['Birth Place'] || '',
-                    bio: row['Биография'] || row['Bio'] || '',
-                    events: row['События (разделить ;)'] || row['Events'] || '',
-                    photos: [],
-                    children: []
-                };
-                
-                if (person.events) {
-                    person.events = person.events.replace(/;/g, '\n');
-                }
-                
-                if (typeof person.birthDate === 'number') {
-                    person.birthDate = excelDateToJSDate(person.birthDate);
-                }
-                if (typeof person.deathDate === 'number') {
-                    person.deathDate = excelDateToJSDate(person.deathDate);
-                }
-                
-                return person;
-            });
-            
-            jsonData.forEach((row, index) => {
-                const parentId = row['ID родителя'] || row['Parent ID'];
-                const spouseId = row['ID супруга'] || row['Spouse ID'];
-                
-                if (parentId) {
-                    const parent = newFamilyData.find(p => p.id == parentId);
-                    if (parent) {
-                        if (!parent.children) parent.children = [];
-                        parent.children.push(newFamilyData[index].id);
-                    }
-                }
-                
-                if (spouseId) {
-                    newFamilyData[index].spouseId = parseInt(spouseId);
-                }
-            });
-            
-            familyData = newFamilyData;
-            saveData();
-            alert('✅ Данные успешно импортированы!');
-            
-        } catch (err) {
-            console.error(err);
-            alert('Ошибка при чтении Excel файла: ' + err.message);
-        }
+        return person?.children?.length ? Math.max(...person.children.map(id => getDepth(id, depth + 1))) : depth;
     };
-    reader.readAsArrayBuffer(file);
-    e.target.value = '';
-});
-
-function excelDateToJSDate(serial) {
-    const utc_days = Math.floor(serial - 25569);
-    const utc_value = utc_days * 86400;
-    const date_info = new Date(utc_value * 1000);
     
-    const year = date_info.getFullYear();
-    const month = String(date_info.getMonth() + 1).padStart(2, '0');
-    const day = String(date_info.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
+    const roots = familyData.filter(p => !familyData.some(parent => parent.children?.includes(p.id)));
+    return roots.length ? Math.max(...roots.map(r => getDepth(r.id))) : 1;
 }
 
+function importData() { document.getElementById('importInput').click(); }
+function importExcel() { document.getElementById('excelInput').click(); }
 
-
-// Закрытие модального окна
-window.onclick = function(e) {
-    if (e.target.classList.contains('modal')) {
-        e.target.style.display = 'none';
-    }
+window.onclick = e => {
+    if (e.target.classList.contains('modal')) e.target.style.display = 'none';
 };
