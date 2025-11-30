@@ -37,7 +37,7 @@ function saveData() {
     renderTree();
 }
 
-// Построение дерева
+// ✅ ИСПРАВЛЕННАЯ функция построения дерева - показывает ВСЕХ супругов
 function buildTree(parentId = null) {
     const children = familyData.filter(person => {
         if (parentId === null) {
@@ -58,8 +58,10 @@ function buildTree(parentId = null) {
         const genderClass = person.gender ? person.gender : '';
         const photo = person.photos && person.photos.length > 0 ? person.photos[0] : '';
         
-        const spouse = person.spouseId ? familyData.find(p => p.id === person.spouseId) : null;
-        const spouseInfo = spouse ? `<div class="spouse-indicator">💍 ${spouse.name}</div>` : '';
+        // ✅ ПОКАЗЫВАЕМ ВСЕХ супругов
+        const spouses = familyData.filter(p => p.spouseId === person.id);
+        const spouseInfo = spouses.length > 0 ? 
+            `<div class="spouses-list">${spouses.map(s => `💍 ${s.name}`).join('<br>')}</div>` : '';
 
         html += `
             <li>
@@ -124,7 +126,7 @@ function clearSearch() {
     });
 }
 
-// Модальные окна
+// ✅ ИСПРАВЛЕННАЯ функция просмотра - показывает ВСЕХ супругов
 function showViewModal(personId) {
     const person = familyData.find(p => p.id === personId);
     if (!person) return;
@@ -161,12 +163,17 @@ function showViewModal(personId) {
     if (person.deathDate) {
         infoHtml += `<p><strong>Дата смерти:</strong> ${formatDate(person.deathDate)}</p>`;
     }
-    if (person.spouseId) {
-        const spouse = familyData.find(p => p.id === person.spouseId);
-        if (spouse) {
-            infoHtml += `<p><strong>Супруг(а):</strong> ${spouse.name}</p>`;
-        }
+    
+    // ✅ ВСЕ супруги в модальном окне
+    const spouses = familyData.filter(p => p.spouseId === person.id);
+    if (spouses.length > 0) {
+        infoHtml += `<p><strong>Супруг(и/а):</strong></p><ul style="margin-left: 20px;">`;
+        spouses.forEach(spouse => {
+            infoHtml += `<li>${spouse.name}</li>`;
+        });
+        infoHtml += `</ul>`;
     }
+    
     if (person.bio) {
         infoHtml += `<p><strong>О персоне:</strong> ${person.bio}</p>`;
     }
@@ -261,10 +268,6 @@ function showEditModal(personId) {
     
     updateParentSelect(personId);
     updateSpouseSelect(personId);
-    
-    if (person.spouseId) {
-        document.getElementById('personSpouse').value = person.spouseId;
-    }
     
     document.getElementById('deleteBtn').style.display = 'block';
     document.getElementById('editModal').style.display = 'flex';
@@ -713,7 +716,6 @@ async function exportToPDF() {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
     
-    // Захватываем древо
     const treeElement = document.getElementById('familyTree');
     
     try {
@@ -759,7 +761,6 @@ function exportToExcel() {
     
     const ws = XLSX.utils.json_to_sheet(excelData);
     
-    // Настройка ширины колонок
     ws['!cols'] = [
         {wch: 5}, {wch: 20}, {wch: 18}, {wch: 25}, {wch: 25}, 
         {wch: 25}, {wch: 15}, {wch: 15}, {wch: 40}, {wch: 50}
@@ -789,7 +790,6 @@ function importExcel() {
     document.getElementById('excelInput').click();
 }
 
-// Скачать шаблон Excel
 function downloadTemplate() {
     const wb = XLSX.utils.book_new();
     
@@ -802,7 +802,6 @@ function downloadTemplate() {
     
     const ws = XLSX.utils.aoa_to_sheet(templateData);
     
-    // Настройка ширины колонок
     ws['!cols'] = [
         {wch: 5}, {wch: 20}, {wch: 18}, {wch: 25}, {wch: 25}, 
         {wch: 25}, {wch: 15}, {wch: 15}, {wch: 40}, {wch: 50}
@@ -834,7 +833,6 @@ document.getElementById('excelInput').addEventListener('change', function(e) {
                 return;
             }
             
-            // Преобразуем данные из Excel в формат приложения
             const newFamilyData = jsonData.map((row, index) => {
                 const person = {
                     id: row['ID'] || (index + 1),
@@ -849,12 +847,10 @@ document.getElementById('excelInput').addEventListener('change', function(e) {
                     children: []
                 };
                 
-                // Обработка событий
                 if (person.events) {
                     person.events = person.events.replace(/;/g, '\n');
                 }
                 
-                // Обработка дат из Excel (если формат date)
                 if (typeof person.birthDate === 'number') {
                     person.birthDate = excelDateToJSDate(person.birthDate);
                 }
@@ -865,7 +861,6 @@ document.getElementById('excelInput').addEventListener('change', function(e) {
                 return person;
             });
             
-            // Второй проход: устанавливаем связи родитель-ребенок и супругов
             jsonData.forEach((row, index) => {
                 const parentId = row['ID родителя'] || row['Parent ID'];
                 const spouseId = row['ID супруга'] || row['Spouse ID'];
@@ -896,7 +891,6 @@ document.getElementById('excelInput').addEventListener('change', function(e) {
     e.target.value = '';
 });
 
-// Конвертация даты Excel в формат YYYY-MM-DD
 function excelDateToJSDate(serial) {
     const utc_days = Math.floor(serial - 25569);
     const utc_value = utc_days * 86400;
